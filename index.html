@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON to Excel & JSON Converter</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --primary-light: #eeebff;
+        --success: #10b981;
+        --success-hover: #059669;
+        --success-light: #ecfdf5;
+        --accent: #f59e0b;
+        --accent-light: #fffbeb;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --bg-main: #f8fafc;
+        --card-bg: #ffffff;
+        --border: #e2e8f0;
+        --border-hover: #cbd5e1;
+        --radius: 12px;
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        line-height: 1.6;
+        padding: 40px 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--text-main);
+        background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+        display: inline-block;
+      }
+
+      header p {
+        color: var(--text-muted);
+        font-size: 1.05rem;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 30px;
+        box-shadow: var(--shadow);
+        margin-bottom: 30px;
+        transition: var(--transition);
+      }
+
+      .card:hover {
+        box-shadow: var(--shadow-lg);
+      }
+
+      .input-group {
+        margin-bottom: 24px;
+        position: relative;
+      }
+
+      .input-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-main);
+        font-size: 0.95rem;
+      }
+
+      textarea {
+        width: 100%;
+        height: 250px;
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+        padding: 16px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        outline: none;
+        resize: vertical;
+        transition: var(--transition);
+        background-color: #fafafa;
+      }
+
+      textarea:focus {
+        border-color: var(--primary);
+        background-color: #fff;
+        box-shadow: 0 0 0 4px var(--primary-light);
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .btn-primary {
+        background-color: var(--primary);
+        color: white;
+        flex: 1;
+        min-width: 180px;
+      }
+
+      .btn-primary:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+      }
+
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+
+      .btn-success {
+        background-color: var(--success);
+        color: white;
+      }
+
+      .btn-success:hover:not(:disabled) {
+        background-color: var(--success-hover);
+        transform: translateY(-1px);
+      }
+
+      .btn-success:disabled {
+        background-color: var(--border);
+        color: var(--text-muted);
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background-color: #64748b;
+        color: white;
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background-color: #475569;
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary:disabled {
+        background-color: var(--border);
+        color: var(--text-muted);
+        cursor: not-allowed;
+      }
+
+      .btn-copy {
+        background-color: var(--primary-light);
+        color: var(--primary);
+        padding: 6px 12px;
+        font-size: 0.85rem;
+      }
+
+      .btn-copy:hover {
+        background-color: var(--primary);
+        color: white;
+      }
+
+      .status {
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .status.success {
+        background-color: var(--success-light);
+        color: var(--success-hover);
+        border: 1px solid #a7f3d0;
+      }
+
+      .status.error {
+        background-color: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+      }
+
+      /* View Tabs styling */
+      .tabs-container {
+        display: none; /* Hidden until data processed */
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+
+      .tabs-header {
+        display: flex;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 16px 0;
+        gap: 8px;
+      }
+
+      .tab-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-weight: 600;
+        padding: 12px 20px;
+        font-size: 0.95rem;
+        cursor: pointer;
+        border-radius: 8px 8px 0 0;
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+      }
+
+      .tab-btn:hover {
+        color: var(--text-main);
+        background-color: rgba(0, 0, 0, 0.02);
+      }
+
+      .tab-btn.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+        background-color: var(--card-bg);
+      }
+
+      .tab-content {
+        padding: 0;
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Table Styles */
+      .table-wrapper {
+        overflow-x: auto;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.95rem;
+      }
+
+      th {
+        background-color: #fafafa;
+        color: var(--text-main);
+        font-weight: 600;
+        padding: 14px 18px;
+        border-bottom: 2px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      td {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        color: #334155;
+      }
+
+      tr:hover td {
+        background-color: #f8fafc;
+      }
+
+      /* JSON View Styles */
+      .json-wrapper {
+        position: relative;
+        padding: 20px;
+        background: #0f172a;
+        color: #f1f5f9;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .json-header-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+      }
+
+      pre {
+        margin: 0;
+        font-family: 'Fira Code', monospace;
+        font-size: 13.5px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      a.hotel-link {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      a.hotel-link:hover {
+        text-decoration: underline;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Responsive adjustment */
+      @media (max-width: 640px) {
+        .controls {
+          flex-direction: column;
+        }
+        .btn-primary, .btn-success, .btn-secondary {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>JSON → Excel & JSON Converter</h1>
+        <p>Lọc các trường dữ liệu khách sạn & chuẩn hóa số điện thoại tự động</p>
+      </header>
+
+      <div class="card">
+        <div class="input-group">
+          <label for="jsonInput">Nhập dữ liệu JSON khách sạn</label>
+          <textarea
+            id="jsonInput"
+            placeholder='Dán JSON array chứa thông tin các khách sạn vào đây. Ví dụ: [{"title": "Khách Sạn A", "phone": "+84 123 456 789", ...}]'
+          ></textarea>
+        </div>
+
+        <div class="controls">
+          <button onclick="processJSON()" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Xử lý dữ liệu
+          </button>
+          <button onclick="downloadExcel()" id="downloadBtn" class="btn-success" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Tải File Excel (.xlsx)
+          </button>
+          <button onclick="downloadJSON()" id="downloadJsonBtn" class="btn-secondary" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Tải File JSON (.json)
+          </button>
+        </div>
+
+        <div id="status"></div>
+      </div>
+
+      <div class="tabs-container" id="tabsContainer">
+        <div class="tabs-header">
+          <button class="tab-btn active" onclick="switchTab('tableView')">Xem dạng Bảng</button>
+          <button class="tab-btn" onclick="switchTab('jsonView')">Xem dạng JSON</button>
+        </div>
+
+        <!-- Table Content View -->
+        <div id="tableView" class="tab-content active">
+          <div class="table-wrapper" id="tableResult"></div>
+        </div>
+
+        <!-- JSON Content View -->
+        <div id="jsonView" class="tab-content">
+          <div class="json-header-actions">
+            <button onclick="copyToClipboard()" class="btn-copy" id="copyBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Sao chép JSON
+            </button>
+          </div>
+          <div class="json-wrapper">
+            <pre><code id="jsonResult"></code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
