@@ -1,5 +1,6 @@
 // script.js - JSON to Excel & JSON Converter
 let currentData = [];
+let originalData = [];
 
 function normalizePhone(phone) {
   if (!phone) return "";
@@ -21,6 +22,7 @@ function processJSON() {
   const tabsContainer = document.getElementById("tabsContainer");
   const downloadBtn = document.getElementById("downloadBtn");
   const downloadJsonBtn = document.getElementById("downloadJsonBtn");
+  const sortSelect = document.getElementById("sortSelect");
 
   statusEl.innerHTML = "";
   tableResultEl.innerHTML = "";
@@ -29,6 +31,7 @@ function processJSON() {
   downloadBtn.disabled = true;
   downloadJsonBtn.disabled = true;
   currentData = [];
+  originalData = [];
 
   if (!input) {
     statusEl.className = "status error";
@@ -47,7 +50,7 @@ function processJSON() {
     }
 
     // Filter valid items first, then map to ensure STT is sequential with no gaps
-    currentData = jsonData
+    originalData = jsonData
       .filter((item) => item && item.title && item.title.trim() !== "")
       .map((item, index) => ({
         stt: index + 1,
@@ -59,7 +62,7 @@ function processJSON() {
         website: item.website || "",
       }));
 
-    if (currentData.length === 0) {
+    if (originalData.length === 0) {
       statusEl.className = "status error";
       statusEl.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -68,44 +71,15 @@ function processJSON() {
       return;
     }
 
-    // Render Table View
-    let html = `
-      <table>
-        <thead>
-          <tr>
-            <th>STT</th>
-            <th>Title</th>
-            <th>Address</th>
-            <th>Phone</th>
-            <th>URL</th>
-            <th>Total Score</th>
-            <th>Website</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    // Reset sort select to default
+    if (sortSelect) {
+      sortSelect.value = "default";
+    }
 
-    currentData.forEach((row) => {
-      const displayUrl = row.url ? `<a href="${row.url}" target="_blank" class="hotel-link">Link</a>` : "";
-      const displayWebsite = row.website ? `<a href="${row.website}" target="_blank" class="hotel-link">Website</a>` : "";
-      html += `
-        <tr>
-          <td><strong>${row.stt}</strong></td>
-          <td>${row.title}</td>
-          <td>${row.address}</td>
-          <td>${row.phone}</td>
-          <td>${displayUrl}</td>
-          <td>${row.totalScore}</td>
-          <td>${displayWebsite}</td>
-        </tr>
-      `;
-    });
+    currentData = originalData.map(item => ({ ...item }));
 
-    html += "</tbody></table>";
-    tableResultEl.innerHTML = html;
-
-    // Render JSON View
-    jsonResultEl.textContent = JSON.stringify(currentData, null, 2);
+    // Render results (Table & JSON)
+    renderResults();
 
     // Show result container & enable download buttons
     tabsContainer.style.display = "block";
@@ -126,6 +100,84 @@ function processJSON() {
     `;
   }
 }
+
+function renderResults() {
+  const tableResultEl = document.getElementById("tableResult");
+  const jsonResultEl = document.getElementById("jsonResult");
+
+  if (currentData.length === 0) return;
+
+  // Update STT based on current array order
+  currentData.forEach((row, index) => {
+    row.stt = index + 1;
+  });
+
+  // Render Table View
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Title</th>
+          <th>Address</th>
+          <th>Phone</th>
+          <th>URL</th>
+          <th>Total Score</th>
+          <th>Website</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  currentData.forEach((row) => {
+    const displayUrl = row.url ? `<a href="${row.url}" target="_blank" class="hotel-link">Link</a>` : "";
+    const displayWebsite = row.website ? `<a href="${row.website}" target="_blank" class="hotel-link">Website</a>` : "";
+    html += `
+      <tr>
+        <td><strong>${row.stt}</strong></td>
+        <td>${row.title}</td>
+        <td>${row.address}</td>
+        <td>${row.phone}</td>
+        <td>${displayUrl}</td>
+        <td>${row.totalScore}</td>
+        <td>${displayWebsite}</td>
+      </tr>
+    `;
+  });
+
+  html += "</tbody></table>";
+  tableResultEl.innerHTML = html;
+
+  // Render JSON View
+  jsonResultEl.textContent = JSON.stringify(currentData, null, 2);
+}
+
+function handleSortChange(order) {
+  if (originalData.length === 0) return;
+
+  if (order === "default") {
+    // Restore original order
+    currentData = originalData.map(item => ({ ...item }));
+  } else {
+    // Sort currentData by totalScore
+    currentData.sort((a, b) => {
+      const scoreA = parseFloat(a.totalScore);
+      const scoreB = parseFloat(b.totalScore);
+      const hasA = !isNaN(scoreA);
+      const hasB = !isNaN(scoreB);
+
+      if (!hasA && !hasB) return 0;
+      if (!hasA) return 1;  // Keep items without scores at the bottom
+      if (!hasB) return -1; // Keep items without scores at the bottom
+
+      return order === "desc" ? scoreB - scoreA : scoreA - scoreB;
+    });
+  }
+
+  // Re-render
+  renderResults();
+}
+
 
 function switchTab(tabId) {
   // Update buttons
