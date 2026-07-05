@@ -39,6 +39,15 @@ function processJSON() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span>Vui lòng dán JSON vào ô trên!</span>
     `;
+    Toastify({
+      text: " Vui lòng dán JSON vào ô nhập liệu!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #ef4444, #f87171)"
+      }
+    }).showToast();
     return;
   }
 
@@ -68,6 +77,15 @@ function processJSON() {
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>Không tìm thấy dữ liệu hợp lệ! Yêu cầu mỗi đối tượng phải có trường "title".</span>
       `;
+      Toastify({
+        text: "⚠️ Không tìm thấy dữ liệu hợp lệ!",
+        duration: 3000,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "linear-gradient(to right, #f59e0b, #fbbf24)"
+        }
+      }).showToast();
       return;
     }
 
@@ -91,6 +109,16 @@ function processJSON() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       <span>Đã xử lý thành công ${currentData.length} dòng dữ liệu! Số điện thoại đã được chuẩn hóa.</span>
     `;
+
+    Toastify({
+      text: ` Đã xử lý thành công ${currentData.length} dòng dữ liệu!`,
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #10b981, #34d399)"
+      }
+    }).showToast();
   } catch (e) {
     console.error(e);
     statusEl.className = "status error";
@@ -98,6 +126,15 @@ function processJSON() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span>Lỗi định dạng JSON: ${e.message}</span>
     `;
+    Toastify({
+      text: ` Lỗi định dạng JSON: ${e.message}`,
+      duration: 4000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #ef4444, #f87171)"
+      }
+    }).showToast();
   }
 }
 
@@ -174,10 +211,25 @@ function handleSortChange(order) {
     });
   }
 
+  // Show Toastify notification
+  const sortTexts = {
+    "default": "Khôi phục thứ tự mặc định",
+    "desc": "Đã sắp xếp điểm từ Cao → Thấp",
+    "asc": "Đã sắp xếp điểm từ Thấp → Cao"
+  };
+  Toastify({
+    text: `⚡ ${sortTexts[order]}`,
+    duration: 2000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #4f46e5, #6366f1)"
+    }
+  }).showToast();
+
   // Re-render
   renderResults();
 }
-
 
 function switchTab(tabId) {
   // Update buttons
@@ -210,12 +262,30 @@ function copyToClipboard() {
       Đã sao chép!
     `;
     
+    Toastify({
+      text: "📋 Đã sao chép dữ liệu JSON!",
+      duration: 2000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #3b82f6, #60a5fa)"
+      }
+    }).showToast();
+    
     setTimeout(() => {
       copyBtn.innerHTML = originalHTML;
     }, 2000);
   }).catch(err => {
     console.error("Lỗi khi sao chép: ", err);
-    alert("Không thể sao chép tự động. Vui lòng tự bôi đen và sao chép.");
+    Toastify({
+      text: "❌ Lỗi sao chép bộ nhớ tạm!",
+      duration: 2000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #ef4444, #f87171)"
+      }
+    }).showToast();
   });
 }
 
@@ -224,6 +294,16 @@ function downloadJSON() {
     alert("Chưa có dữ liệu để xuất!");
     return;
   }
+
+  Toastify({
+    text: "📥 Đang tải xuống file JSON...",
+    duration: 2000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #64748b, #94a3b8)"
+    }
+  }).showToast();
 
   const jsonString = JSON.stringify(currentData, null, 2);
   const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
@@ -261,6 +341,16 @@ function downloadExcel() {
 }
 
 function exportToExcel() {
+  Toastify({
+    text: "📥 Đang tải xuống file Excel...",
+    duration: 2000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #10b981, #34d399)"
+    }
+  }).showToast();
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(currentData);
 
@@ -289,3 +379,101 @@ document.addEventListener("keydown", function (e) {
     processJSON();
   }
 });
+
+// File Upload & Drag and Drop Handling
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  readFileContent(file);
+}
+
+function readFileContent(file) {
+  if (file.type !== "application/json" && !file.name.endsWith(".json")) {
+    Toastify({
+      text: "❌ Vui lòng chỉ chọn tệp tin định dạng .json!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #ef4444, #f87171)"
+      }
+    }).showToast();
+    return;
+  }
+
+  Toastify({
+    text: `📂 Đang đọc tệp tin: ${file.name}...`,
+    duration: 2000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #3b82f6, #60a5fa)"
+    }
+  }).showToast();
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const text = e.target.result;
+    document.getElementById("jsonInput").value = text;
+    // Automatically trigger processing
+    processJSON();
+    
+    // Clear file input so the same file can be uploaded again
+    const fileInput = document.getElementById("fileInput");
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+  reader.onerror = function () {
+    Toastify({
+      text: "❌ Lỗi xảy ra khi đọc tệp tin!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #ef4444, #f87171)"
+      }
+    }).showToast();
+  };
+  reader.readAsText(file);
+}
+
+// Setup Drag & Drop Event Listeners
+function initDragAndDrop() {
+  const wrapper = document.getElementById("textareaWrapper");
+  if (!wrapper) return;
+
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+    wrapper.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, false);
+  });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    wrapper.addEventListener(eventName, () => {
+      wrapper.classList.add("drag-over");
+    }, false);
+  });
+
+  ["dragleave", "drop"].forEach((eventName) => {
+    wrapper.addEventListener(eventName, () => {
+      wrapper.classList.remove("drag-over");
+    }, false);
+  });
+
+  wrapper.addEventListener("drop", (e) => {
+    const dt = e.dataTransfer;
+    const file = dt.files[0];
+    if (file) {
+      readFileContent(file);
+    }
+  }, false);
+}
+
+// Call on load
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initDragAndDrop);
+} else {
+  initDragAndDrop();
+}
