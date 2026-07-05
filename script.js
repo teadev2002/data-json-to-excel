@@ -22,6 +22,9 @@ function processJSON() {
   const tabsContainer = document.getElementById("tabsContainer");
   const downloadBtn = document.getElementById("downloadBtn");
   const downloadJsonBtn = document.getElementById("downloadJsonBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const checkDupBtn = document.getElementById("checkDupBtn");
+  const removeDupBtn = document.getElementById("removeDupBtn");
   const sortSelect = document.getElementById("sortSelect");
 
   statusEl.innerHTML = "";
@@ -30,6 +33,9 @@ function processJSON() {
   tabsContainer.style.display = "none";
   downloadBtn.disabled = true;
   downloadJsonBtn.disabled = true;
+  saveBtn.disabled = true;
+  if (checkDupBtn) checkDupBtn.disabled = true;
+  if (removeDupBtn) removeDupBtn.disabled = true;
   currentData = [];
   originalData = [];
 
@@ -103,6 +109,9 @@ function processJSON() {
     tabsContainer.style.display = "block";
     downloadBtn.disabled = false;
     downloadJsonBtn.disabled = false;
+    saveBtn.disabled = false;
+    if (checkDupBtn) checkDupBtn.disabled = false;
+    if (removeDupBtn) removeDupBtn.disabled = false;
 
     statusEl.className = "status success";
     statusEl.innerHTML = `
@@ -169,9 +178,11 @@ function renderResults() {
   currentData.forEach((row) => {
     const displayUrl = row.url ? `<a href="${row.url}" target="_blank" class="hotel-link">Link</a>` : "";
     const displayWebsite = row.website ? `<a href="${row.website}" target="_blank" class="hotel-link">Website</a>` : "";
+    const trClass = row.isDuplicate ? 'class="row-duplicate"' : "";
+    const sttDisplay = row.isDuplicate ? `⚠️ ${row.stt}` : row.stt;
     html += `
-      <tr>
-        <td><strong>${row.stt}</strong></td>
+      <tr ${trClass}>
+        <td><strong>${sttDisplay}</strong></td>
         <td>${row.title}</td>
         <td>${row.address}</td>
         <td>${row.phone}</td>
@@ -473,7 +484,282 @@ function initDragAndDrop() {
 
 // Call on load
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initDragAndDrop);
+  document.addEventListener("DOMContentLoaded", () => {
+    initDragAndDrop();
+    initStorage();
+  });
 } else {
   initDragAndDrop();
+  initStorage();
+}
+
+// LocalStorage Persistence Handling
+function updateStorageStats() {
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const storageCountEl = document.getElementById("storageCount");
+  const loadStorageBtn = document.getElementById("loadStorageBtn");
+  const clearStorageBtn = document.getElementById("clearStorageBtn");
+
+  if (storageCountEl) {
+    storageCountEl.textContent = savedData.length;
+  }
+
+  const hasData = savedData.length > 0;
+  if (loadStorageBtn) loadStorageBtn.disabled = !hasData;
+  if (clearStorageBtn) clearStorageBtn.disabled = !hasData;
+}
+
+function saveToLocalStorage() {
+  if (currentData.length === 0) {
+    Toastify({
+      text: "⚠️ Không có dữ liệu đã xử lý để lưu!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #f59e0b, #fbbf24)"
+      }
+    }).showToast();
+    return;
+  }
+
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const existingUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
+  const batchUrls = new Set();
+  const mergedData = [...savedData];
+  let duplicateCount = 0;
+  let newAddedCount = 0;
+
+  currentData.forEach(item => {
+    const urlVal = item.url ? item.url.trim().toLowerCase() : "";
+    if (urlVal !== "") {
+      if (existingUrls.has(urlVal) || batchUrls.has(urlVal)) {
+        duplicateCount++;
+        return; // Discard duplicate URL
+      }
+      batchUrls.add(urlVal);
+    }
+    const cleanItem = { ...item };
+    delete cleanItem.isDuplicate; // Ensure we don't persist transient visual warning state
+    mergedData.push(cleanItem);
+    newAddedCount++;
+  });
+
+  // Re-index all items in storage
+  mergedData.forEach((row, index) => {
+    row.stt = index + 1;
+  });
+
+  localStorage.setItem("hotel_data", JSON.stringify(mergedData));
+  updateStorageStats();
+
+  if (duplicateCount > 0) {
+    Toastify({
+      text: `💾 Đã lưu! Thêm ${newAddedCount} mục mới. Loại bỏ ${duplicateCount} mục trùng URL. Tổng kho: ${mergedData.length} mục.`,
+      duration: 5000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #10b981, #34d399)"
+      }
+    }).showToast();
+  } else {
+    Toastify({
+      text: `💾 Đã lưu thành công ${newAddedCount} mục mới! Tổng kho: ${mergedData.length} mục.`,
+      duration: 4000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #10b981, #34d399)"
+      }
+    }).showToast();
+  }
+}
+
+function loadFromLocalStorage() {
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  if (savedData.length === 0) {
+    Toastify({
+      text: "⚠️ Kho lưu trữ trống!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #f59e0b, #fbbf24)"
+      }
+    }).showToast();
+    return;
+  }
+
+  // Load into active workspace
+  originalData = savedData.map(item => ({ ...item }));
+  currentData = savedData.map(item => ({ ...item }));
+
+  // Reset sort selection to default
+  const sortSelect = document.getElementById("sortSelect");
+  if (sortSelect) {
+    sortSelect.value = "default";
+  }
+
+  // Render
+  renderResults();
+
+  // Show views & enable buttons
+  document.getElementById("tabsContainer").style.display = "block";
+  document.getElementById("downloadBtn").disabled = false;
+  document.getElementById("downloadJsonBtn").disabled = false;
+  document.getElementById("saveBtn").disabled = false; // Keep save button enabled so they can save on top
+
+  Toastify({
+    text: `📂 Đã tải ${savedData.length} mục từ kho lưu trữ!`,
+    duration: 3500,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #3b82f6, #60a5fa)"
+    }
+  }).showToast();
+}
+
+function clearLocalStorage() {
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  if (savedData.length === 0) return;
+
+  const conf = confirm(`Bạn có chắc chắn muốn xóa sạch toàn bộ ${savedData.length} khách sạn đã lưu trong kho lưu trữ của trình duyệt?`);
+  if (!conf) return;
+
+  localStorage.removeItem("hotel_data");
+  updateStorageStats();
+
+  Toastify({
+    text: "🗑️ Đã xóa sạch dữ liệu lưu trữ trong kho!",
+    duration: 3000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #64748b, #94a3b8)"
+    }
+  }).showToast();
+}
+
+function checkDuplicates() {
+  if (currentData.length === 0) return;
+
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
+  
+  // Count url frequencies in currentData (batch) to find duplicates within the current list
+  const currentUrlCounts = {};
+  currentData.forEach(item => {
+    const urlVal = item.url ? item.url.trim().toLowerCase() : "";
+    if (urlVal !== "") {
+      currentUrlCounts[urlVal] = (currentUrlCounts[urlVal] || 0) + 1;
+    }
+  });
+
+  let duplicateCount = 0;
+  currentData.forEach(item => {
+    const urlVal = item.url ? item.url.trim().toLowerCase() : "";
+    if (urlVal !== "") {
+      const isSavedDup = savedUrls.has(urlVal);
+      const isBatchDup = currentUrlCounts[urlVal] > 1;
+      
+      if (isSavedDup || isBatchDup) {
+        item.isDuplicate = true;
+        duplicateCount++;
+      } else {
+        item.isDuplicate = false;
+      }
+    } else {
+      item.isDuplicate = false;
+    }
+  });
+
+  // Re-render
+  renderResults();
+
+  if (duplicateCount > 0) {
+    Toastify({
+      text: `⚠️ Phát hiện ${duplicateCount} dòng trùng lặp URL! Các dòng này đã được tô màu vàng và gắn biểu tượng cảnh báo trong bảng.`,
+      duration: 5000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #f59e0b, #d97706)"
+      }
+    }).showToast();
+  } else {
+    Toastify({
+      text: "✅ Tuyệt vời! Không phát hiện trùng lặp URL nào trong danh sách.",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #10b981, #059669)"
+      }
+    }).showToast();
+  }
+}
+
+function removeDuplicates() {
+  if (currentData.length === 0) return;
+
+  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
+  
+  const uniqueData = [];
+  const seenUrls = new Set();
+  let removedCount = 0;
+
+  currentData.forEach(item => {
+    const urlVal = item.url ? item.url.trim().toLowerCase() : "";
+    if (urlVal !== "") {
+      const isSavedDup = savedUrls.has(urlVal);
+      const isBatchDup = seenUrls.has(urlVal);
+      
+      if (isSavedDup || isBatchDup) {
+        removedCount++;
+        return; // Discard duplicate URL
+      }
+      seenUrls.add(urlVal);
+    }
+    // Keep unique record and clear duplicate visual warning flag
+    const cleanItem = { ...item };
+    delete cleanItem.isDuplicate;
+    uniqueData.push(cleanItem);
+  });
+
+  if (removedCount === 0) {
+    Toastify({
+      text: "ℹ️ Không phát hiện bản ghi trùng lặp nào để xóa!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #64748b, #94a3b8)"
+      }
+    }).showToast();
+    return;
+  }
+
+  // Update active data
+  originalData = uniqueData.map(item => ({ ...item }));
+  currentData = uniqueData.map(item => ({ ...item }));
+
+  // Re-render results
+  renderResults();
+
+  Toastify({
+    text: `🗑️ Đã xóa ${removedCount} dòng trùng lặp! Giữ lại ${currentData.length} bản ghi độc nhất.`,
+    duration: 4000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: "linear-gradient(to right, #ef4444, #f87171)"
+    }
+  }).showToast();
+}
+
+function initStorage() {
+  updateStorageStats();
 }
