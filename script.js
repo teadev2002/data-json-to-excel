@@ -482,34 +482,63 @@ function initDragAndDrop() {
   }, false);
 }
 
-// Call on load
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    initDragAndDrop();
-    initStorage();
-  });
-} else {
-  initDragAndDrop();
-  initStorage();
-}
-
 // LocalStorage Persistence Handling
 function updateStorageStats() {
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
-  const storageCountEl = document.getElementById("storageCount");
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+  const select = document.getElementById("savedListsSelect");
   const loadStorageBtn = document.getElementById("loadStorageBtn");
-  const clearStorageBtn = document.getElementById("clearStorageBtn");
+  const deleteStorageBtn = document.getElementById("deleteStorageBtn");
+  const clearAllStorageBtn = document.getElementById("clearAllStorageBtn");
 
-  if (storageCountEl) {
-    storageCountEl.textContent = savedData.length;
+  if (!select) return;
+
+  // Save current selection value
+  const currentValue = select.value;
+
+  // Clear options
+  select.innerHTML = "";
+
+  // Add default option
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = `-- Chọn danh sách đã lưu (${lists.length}) --`;
+  select.appendChild(defaultOpt);
+
+  // Add list options
+  lists.forEach((list) => {
+    const opt = document.createElement("option");
+    opt.value = list.id;
+    opt.textContent = `${list.name} (${list.count} khách sạn)`;
+    select.appendChild(opt);
+  });
+
+  // Restore selection if still exists
+  const exists = lists.some((list) => list.id === currentValue);
+  if (exists) {
+    select.value = currentValue;
+  } else {
+    select.value = "";
   }
 
-  const hasData = savedData.length > 0;
-  if (loadStorageBtn) loadStorageBtn.disabled = !hasData;
-  if (clearStorageBtn) clearStorageBtn.disabled = !hasData;
+  // Update button states based on selection
+  handleListSelectChange(select.value);
 }
 
-function saveToLocalStorage() {
+function handleListSelectChange(value) {
+  const loadStorageBtn = document.getElementById("loadStorageBtn");
+  const deleteStorageBtn = document.getElementById("deleteStorageBtn");
+  const clearAllStorageBtn = document.getElementById("clearAllStorageBtn");
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+
+  const hasSelection = value !== "";
+  if (loadStorageBtn) loadStorageBtn.disabled = !hasSelection;
+  if (deleteStorageBtn) deleteStorageBtn.disabled = !hasSelection;
+
+  const hasAnyData = lists.length > 0;
+  if (clearAllStorageBtn) clearAllStorageBtn.disabled = !hasAnyData;
+}
+
+function openSaveModal() {
   if (currentData.length === 0) {
     Toastify({
       text: "⚠️ Không có dữ liệu đã xử lý để lưu!",
@@ -523,7 +552,82 @@ function saveToLocalStorage() {
     return;
   }
 
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const modal = document.getElementById("saveModal");
+  const modalSelect = document.getElementById("modalExistingListSelect");
+  const modalInput = document.getElementById("modalListNameInput");
+
+  if (modalInput) modalInput.value = "";
+  if (modalSelect) {
+    modalSelect.innerHTML = "";
+    // Add default option
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "-- Chọn danh sách hiện có --";
+    modalSelect.appendChild(defaultOpt);
+
+    // Add existing lists
+    const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+    lists.forEach(list => {
+      const opt = document.createElement("option");
+      opt.value = list.name;
+      opt.textContent = `${list.name} (${list.count} mục)`;
+      modalSelect.appendChild(opt);
+    });
+  }
+
+  if (modal) {
+    modal.classList.add("active");
+  }
+}
+
+function closeSaveModal() {
+  const modal = document.getElementById("saveModal");
+  if (modal) {
+    modal.classList.remove("active");
+  }
+}
+
+function handleModalSelectChange(value) {
+  const modalInput = document.getElementById("modalListNameInput");
+  if (modalInput) {
+    modalInput.value = value;
+  }
+}
+
+function confirmSaveToStorage() {
+  const modalInput = document.getElementById("modalListNameInput");
+  if (!modalInput) return;
+
+  const listName = modalInput.value.trim();
+  if (!listName) {
+    Toastify({
+      text: "⚠️ Vui lòng nhập hoặc chọn tên danh sách!",
+      duration: 3000,
+      gravity: "top",
+      position: "right",
+      style: {
+        background: "linear-gradient(to right, #f59e0b, #fbbf24)"
+      }
+    }).showToast();
+    return;
+  }
+
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+  
+  // Find list by name (case-insensitive)
+  let listEntry = lists.find(list => list.name.toLowerCase() === listName.toLowerCase());
+  let listId;
+  let savedData = [];
+
+  if (listEntry) {
+    listId = listEntry.id;
+    savedData = JSON.parse(localStorage.getItem("hotel_data_" + listId)) || [];
+  } else {
+    listId = "list_" + Date.now();
+    listEntry = { id: listId, name: listName, count: 0 };
+    lists.push(listEntry);
+  }
+
   const existingUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
   const batchUrls = new Set();
   const mergedData = [...savedData];
@@ -540,22 +644,37 @@ function saveToLocalStorage() {
       batchUrls.add(urlVal);
     }
     const cleanItem = { ...item };
-    delete cleanItem.isDuplicate; // Ensure we don't persist transient visual warning state
+    delete cleanItem.isDuplicate; // Clear duplicate visual warning state
     mergedData.push(cleanItem);
     newAddedCount++;
   });
 
-  // Re-index all items in storage
+  // Re-index all items in this list
   mergedData.forEach((row, index) => {
     row.stt = index + 1;
   });
 
-  localStorage.setItem("hotel_data", JSON.stringify(mergedData));
+  // Write list data and update index
+  localStorage.setItem("hotel_data_" + listId, JSON.stringify(mergedData));
+  listEntry.count = mergedData.length;
+  localStorage.setItem("hotel_lists_index", JSON.stringify(lists));
+
+  // Close modal
+  closeSaveModal();
+
+  // Update controls
   updateStorageStats();
+
+  // Select the saved list in select box automatically
+  const select = document.getElementById("savedListsSelect");
+  if (select) {
+    select.value = listId;
+    handleListSelectChange(listId);
+  }
 
   if (duplicateCount > 0) {
     Toastify({
-      text: `💾 Đã lưu! Thêm ${newAddedCount} mục mới. Loại bỏ ${duplicateCount} mục trùng URL. Tổng kho: ${mergedData.length} mục.`,
+      text: `💾 Đã lưu vào "${listName}"! Thêm ${newAddedCount} mục mới. Loại bỏ ${duplicateCount} trùng URL. Tổng danh sách: ${mergedData.length} mục.`,
       duration: 5000,
       gravity: "top",
       position: "right",
@@ -565,7 +684,7 @@ function saveToLocalStorage() {
     }).showToast();
   } else {
     Toastify({
-      text: `💾 Đã lưu thành công ${newAddedCount} mục mới! Tổng kho: ${mergedData.length} mục.`,
+      text: `💾 Đã lưu thành công ${newAddedCount} mục vào "${listName}"!`,
       duration: 4000,
       gravity: "top",
       position: "right",
@@ -577,10 +696,20 @@ function saveToLocalStorage() {
 }
 
 function loadFromLocalStorage() {
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const select = document.getElementById("savedListsSelect");
+  if (!select) return;
+
+  const listId = select.value;
+  if (!listId) return;
+
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+  const listEntry = lists.find(list => list.id === listId);
+  const listName = listEntry ? listEntry.name : "danh sách";
+
+  const savedData = JSON.parse(localStorage.getItem("hotel_data_" + listId)) || [];
   if (savedData.length === 0) {
     Toastify({
-      text: "⚠️ Kho lưu trữ trống!",
+      text: "⚠️ Danh sách này trống!",
       duration: 3000,
       gravity: "top",
       position: "right",
@@ -608,10 +737,12 @@ function loadFromLocalStorage() {
   document.getElementById("tabsContainer").style.display = "block";
   document.getElementById("downloadBtn").disabled = false;
   document.getElementById("downloadJsonBtn").disabled = false;
-  document.getElementById("saveBtn").disabled = false; // Keep save button enabled so they can save on top
+  document.getElementById("saveBtn").disabled = false;
+  document.getElementById("checkDupBtn").disabled = false;
+  document.getElementById("removeDupBtn").disabled = false;
 
   Toastify({
-    text: `📂 Đã tải ${savedData.length} mục từ kho lưu trữ!`,
+    text: `📂 Đã tải danh sách "${listName}" (${savedData.length} mục) vào màn hình.`,
     duration: 3500,
     gravity: "top",
     position: "right",
@@ -621,31 +752,92 @@ function loadFromLocalStorage() {
   }).showToast();
 }
 
-function clearLocalStorage() {
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
-  if (savedData.length === 0) return;
+function deleteListFromStorage() {
+  const select = document.getElementById("savedListsSelect");
+  if (!select) return;
 
-  const conf = confirm(`Bạn có chắc chắn muốn xóa sạch toàn bộ ${savedData.length} khách sạn đã lưu trong kho lưu trữ của trình duyệt?`);
-  if (!conf) return;
+  const listId = select.value;
+  if (!listId) return;
 
-  localStorage.removeItem("hotel_data");
-  updateStorageStats();
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+  const listIndex = lists.findIndex(list => list.id === listId);
+  if (listIndex === -1) return;
 
-  Toastify({
-    text: "🗑️ Đã xóa sạch dữ liệu lưu trữ trong kho!",
-    duration: 3000,
-    gravity: "top",
-    position: "right",
-    style: {
-      background: "linear-gradient(to right, #64748b, #94a3b8)"
+  const listName = lists[listIndex].name;
+
+  showConfirmModal(
+    "Xóa danh sách",
+    `Bạn có chắc chắn muốn xóa danh sách "${listName}" khỏi kho lưu trữ? Hành động này không thể hoàn tác.`,
+    function() {
+      // Remove list data
+      localStorage.removeItem("hotel_data_" + listId);
+
+      // Remove index entry
+      lists.splice(listIndex, 1);
+      localStorage.setItem("hotel_lists_index", JSON.stringify(lists));
+
+      // Reset selection and update stats
+      select.value = "";
+      updateStorageStats();
+
+      Toastify({
+        text: `🗑️ Đã xóa danh sách "${listName}"!`,
+        duration: 3000,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "linear-gradient(to right, #ef4444, #f87171)"
+        }
+      }).showToast();
     }
-  }).showToast();
+  );
+}
+
+function clearAllStorage() {
+  const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+  if (lists.length === 0) return;
+
+  showConfirmModal(
+    "Xóa toàn bộ kho",
+    `Bạn có chắc chắn muốn xóa TOÀN BỘ các danh sách đã lưu (${lists.length} danh sách)? Hành động này sẽ xóa sạch kho lưu trữ của trình duyệt và không thể khôi phục.`,
+    function() {
+      // Delete all list data
+      lists.forEach(list => {
+        localStorage.removeItem("hotel_data_" + list.id);
+      });
+
+      // Delete index
+      localStorage.removeItem("hotel_lists_index");
+
+      // Reset dropdown and update stats
+      const select = document.getElementById("savedListsSelect");
+      if (select) select.value = "";
+      updateStorageStats();
+
+      Toastify({
+        text: "🗑️ Đã xóa sạch toàn bộ kho lưu trữ!",
+        duration: 3000,
+        gravity: "top",
+        position: "right",
+        style: {
+          background: "linear-gradient(to right, #64748b, #94a3b8)"
+        }
+      }).showToast();
+    }
+  );
 }
 
 function checkDuplicates() {
   if (currentData.length === 0) return;
 
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const select = document.getElementById("savedListsSelect");
+  const selectedListId = select ? select.value : "";
+  let savedData = [];
+
+  if (selectedListId) {
+    savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+  }
+
   const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
   
   // Count url frequencies in currentData (batch) to find duplicates within the current list
@@ -679,8 +871,17 @@ function checkDuplicates() {
   renderResults();
 
   if (duplicateCount > 0) {
+    let msg = `⚠️ Phát hiện ${duplicateCount} dòng trùng lặp URL!`;
+    if (selectedListId) {
+      const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+      const listEntry = lists.find(list => list.id === selectedListId);
+      const listName = listEntry ? listEntry.name : "danh sách";
+      msg += ` (so với danh sách "${listName}" và trùng chéo nội bộ).`;
+    } else {
+      msg += ` (trùng chéo nội bộ). Bạn có thể chọn danh sách trong kho để kiểm tra sâu hơn.`;
+    }
     Toastify({
-      text: `⚠️ Phát hiện ${duplicateCount} dòng trùng lặp URL! Các dòng này đã được tô màu vàng và gắn biểu tượng cảnh báo trong bảng.`,
+      text: msg,
       duration: 5000,
       gravity: "top",
       position: "right",
@@ -689,8 +890,15 @@ function checkDuplicates() {
       }
     }).showToast();
   } else {
+    let msg = "✅ Tuyệt vời! Không phát hiện trùng lặp URL nào.";
+    if (selectedListId) {
+      const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+      const listEntry = lists.find(list => list.id === selectedListId);
+      const listName = listEntry ? listEntry.name : "danh sách";
+      msg += ` (so với danh sách "${listName}").`;
+    }
     Toastify({
-      text: "✅ Tuyệt vời! Không phát hiện trùng lặp URL nào trong danh sách.",
+      text: msg,
       duration: 3000,
       gravity: "top",
       position: "right",
@@ -704,9 +912,15 @@ function checkDuplicates() {
 function removeDuplicates() {
   if (currentData.length === 0) return;
 
-  const savedData = JSON.parse(localStorage.getItem("hotel_data")) || [];
+  const select = document.getElementById("savedListsSelect");
+  const selectedListId = select ? select.value : "";
+  let savedData = [];
+
+  if (selectedListId) {
+    savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+  }
+
   const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
-  
   const uniqueData = [];
   const seenUrls = new Set();
   let removedCount = 0;
@@ -762,4 +976,72 @@ function removeDuplicates() {
 
 function initStorage() {
   updateStorageStats();
+}
+
+let confirmCallback = null;
+
+function showConfirmModal(title, message, onConfirm) {
+  const modal = document.getElementById("confirmModal");
+  const titleEl = document.getElementById("confirmTitle");
+  const messageEl = document.getElementById("confirmMessage");
+  const okBtn = document.getElementById("confirmOkBtn");
+
+  if (titleEl) titleEl.textContent = title;
+  if (messageEl) messageEl.textContent = message;
+  
+  confirmCallback = onConfirm;
+
+  if (okBtn) {
+    okBtn.onclick = function() {
+      if (confirmCallback) confirmCallback();
+      closeConfirmModal();
+    };
+  }
+
+  if (modal) {
+    modal.classList.add("active");
+  }
+}
+
+function closeConfirmModal() {
+  const modal = document.getElementById("confirmModal");
+  if (modal) {
+    modal.classList.remove("active");
+  }
+  confirmCallback = null;
+}
+
+// Call on load
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    initDragAndDrop();
+    initStorage();
+    
+    // Close modals on outside click
+    window.addEventListener("click", (e) => {
+      const saveModal = document.getElementById("saveModal");
+      const confirmModal = document.getElementById("confirmModal");
+      if (e.target === saveModal) {
+        closeSaveModal();
+      }
+      if (e.target === confirmModal) {
+        closeConfirmModal();
+      }
+    });
+  });
+} else {
+  initDragAndDrop();
+  initStorage();
+  
+  // Close modals on outside click
+  window.addEventListener("click", (e) => {
+    const saveModal = document.getElementById("saveModal");
+    const confirmModal = document.getElementById("confirmModal");
+    if (e.target === saveModal) {
+      closeSaveModal();
+    }
+    if (e.target === confirmModal) {
+      closeConfirmModal();
+    }
+  });
 }

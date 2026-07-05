@@ -59,7 +59,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           Xóa trùng lặp
         </button>
-        <button onclick="saveToLocalStorage()" id="saveBtn" class="btn-save" disabled>
+        <button onclick="openSaveModal()" id="saveBtn" class="btn-save" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Lưu dữ liệu
         </button>
@@ -86,13 +86,17 @@
       </div>
 
       <div class="storage-bar" id="storageBar">
-        <span class="storage-info">
+        <div class="storage-info">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12H2v10h20V12z"/><path d="M20 12V2H4v10"/></svg>
-          Kho lưu trữ: <strong id="storageCount">0</strong> khách sạn
-        </span>
+          <span>Kho lưu trữ:</span>
+          <select id="savedListsSelect" onchange="handleListSelectChange(this.value)">
+            <option value="">-- Chọn danh sách đã lưu (0) --</option>
+          </select>
+        </div>
         <div class="storage-actions">
-          <button onclick="loadFromLocalStorage()" id="loadStorageBtn" class="btn-text" disabled>Xem dữ liệu đã lưu</button>
-          <button onclick="clearLocalStorage()" id="clearStorageBtn" class="btn-text-danger" disabled>Xóa kho</button>
+          <button onclick="loadFromLocalStorage()" id="loadStorageBtn" class="btn-text" disabled>Xem danh sách</button>
+          <button onclick="deleteListFromStorage()" id="deleteStorageBtn" class="btn-text-danger" disabled>Xóa danh sách</button>
+          <button onclick="clearAllStorage()" id="clearAllStorageBtn" class="btn-text-danger" disabled>Xóa tất cả</button>
         </div>
       </div>
 
@@ -135,6 +139,54 @@
         <div class="json-wrapper">
           <pre><code id="jsonResult"></code></pre>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Modal -->
+  <div id="saveModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Lưu dữ liệu vào kho</h3>
+        <button onclick="closeSaveModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Nhập tên danh sách mới hoặc chọn một danh sách hiện có bên dưới để lưu/gộp dữ liệu.</p>
+        
+        <div class="modal-field">
+          <label for="modalListNameInput">Tên danh sách lưu trữ:</label>
+          <input type="text" id="modalListNameInput" placeholder="VD: Khách sạn phường Phú Thọ...">
+        </div>
+        
+        <div class="modal-divider">HOẶC CHỌN DANH SÁCH CŨ</div>
+        
+        <div class="modal-field">
+          <label for="modalExistingListSelect">Danh sách hiện có:</label>
+          <select id="modalExistingListSelect" onchange="handleModalSelectChange(this.value)">
+            <option value="">-- Chọn danh sách hiện có --</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeSaveModal()" class="btn-text-danger">Hủy</button>
+        <button onclick="confirmSaveToStorage()" class="btn-primary-modal">Xác nhận lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header" style="background-color: #fef2f2; border-bottom: 1px solid #fee2e2;">
+        <h3 id="confirmTitle" style="color: #991b1b;">Xác nhận hành động</h3>
+        <button onclick="closeConfirmModal()" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" class="modal-desc" style="font-size: 0.95rem; margin: 0; color: var(--text-main);"></p>
+      </div>
+      <div class="modal-footer" style="background-color: #f8fafc;">
+        <button onclick="closeConfirmModal()" class="btn-text">Hủy</button>
+        <button id="confirmOkBtn" class="btn-primary-modal" style="background-color: #ef4444;">Đồng ý</button>
       </div>
     </div>
   </div>
