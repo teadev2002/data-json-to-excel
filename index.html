@@ -25,19 +25,19 @@
     <div class="card">
       <div class="input-group">
         <div class="input-header">
-          <label for="jsonInput">Nhập dữ liệu JSON khách sạn</label>
+          <label for="jsonInput">Nhập dữ liệu JSON hoặc CSV khách sạn</label>
           <label class="btn-upload" for="fileInput">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Chọn file .json
+            Chọn file .json / .csv
           </label>
-          <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+          <input type="file" id="fileInput" accept=".json,.csv" style="display: none;" onchange="handleFileSelect(event)">
         </div>
         <div class="textarea-wrapper" id="textareaWrapper">
           <textarea id="jsonInput"
-            placeholder='Dán JSON array chứa thông tin các khách sạn hoặc kéo thả tệp .json vào đây...'></textarea>
+            placeholder="Dán JSON/CSV hoặc kéo thả tệp .json / .csv vào đây..."></textarea>
           <div class="drag-overlay" id="dragOverlay">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span>Thả tệp .json vào đây để import</span>
+            <span>Thả tệp .json hoặc .csv vào đây để import</span>
           </div>
         </div>
       </div>

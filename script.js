@@ -1,17 +1,89 @@
 // script.js - JSON to Excel & JSON Converter
 let currentData = [];
 let originalData = [];
+let activeListId = "";
 
 function normalizePhone(phone) {
   if (!phone) return "";
   let p = String(phone).trim();
-  // Replace +84 with 0
-  if (p.startsWith("+84")) {
-    p = "0" + p.substring(3).trim();
-  } else if (p.startsWith("84")) {
-    p = "0" + p.substring(2).trim();
+  
+  // Check scientific notation (e.g. 8.42E+11, 8.42814752e+10)
+  if (/^[+-]?\d+(\.\d+)?[eE][+-]?\d+$/.test(p)) {
+    const num = Number(p);
+    if (!isNaN(num)) {
+      p = String(Math.round(num));
+    }
   }
+  
+  // Clean all non-digits (remove spaces, dots, dashes, brackets, etc.)
+  const hasPlus = p.startsWith("+");
+  p = p.replace(/\D/g, "");
+  if (hasPlus) {
+    p = "+" + p;
+  }
+  
+  // Normalize Vietnam country code prefix
+  if (p.startsWith("+84")) {
+    p = "0" + p.substring(3);
+  } else if (p.startsWith("84")) {
+    p = "0" + p.substring(2);
+  }
+  
   return p;
+}
+
+function parseCSV(text) {
+  let lines = [];
+  let row = [""];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    let c = text[i];
+    let next = text[i+1];
+
+    if (c === '"') {
+      if (inQuotes && next === '"') {
+        row[row.length - 1] += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === ',' && !inQuotes) {
+      row.push('');
+    } else if ((c === '\r' || c === '\n') && !inQuotes) {
+      if (c === '\r' && next === '\n') {
+        i++;
+      }
+      lines.push(row);
+      row = [''];
+    } else {
+      row[row.length - 1] += c;
+    }
+  }
+  if (row.length > 1 || row[0] !== '') {
+    lines.push(row);
+  }
+  return lines;
+}
+
+function parseCSVToObjects(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  
+  const objects = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 1 && row[0] === "") continue;
+
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index] !== undefined ? row[index].trim() : "";
+    });
+    objects.push(obj);
+  }
+  return objects;
 }
 
 function processJSON() {
@@ -38,15 +110,16 @@ function processJSON() {
   if (removeDupBtn) removeDupBtn.disabled = true;
   currentData = [];
   originalData = [];
+  activeListId = "";
 
   if (!input) {
     statusEl.className = "status error";
     statusEl.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>Vui lòng dán JSON vào ô trên!</span>
+      <span>Vui lòng dán JSON hoặc CSV vào ô trên!</span>
     `;
     Toastify({
-      text: " Vui lòng dán JSON vào ô nhập liệu!",
+      text: "⚠️ Vui lòng dán dữ liệu vào ô nhập liệu!",
       duration: 3000,
       gravity: "top",
       position: "right",
@@ -58,30 +131,54 @@ function processJSON() {
   }
 
   try {
-    let jsonData = JSON.parse(input);
-
-    if (!Array.isArray(jsonData)) {
-      jsonData = [jsonData];
+    let jsonData = [];
+    if (input.startsWith("[") || input.startsWith("{")) {
+      jsonData = JSON.parse(input);
+      if (!Array.isArray(jsonData)) {
+        jsonData = [jsonData];
+      }
+    } else {
+      jsonData = parseCSVToObjects(input);
     }
 
-    // Filter valid items first, then map to ensure STT is sequential with no gaps
+    // Map to normalized schema
     originalData = jsonData
-      .filter((item) => item && item.title && item.title.trim() !== "")
-      .map((item, index) => ({
-        stt: index + 1,
-        title: item.title || "",
-        address: item.address || "",
-        phone: normalizePhone(item.phone),
-        url: item.url || "",
-        totalScore: item.totalScore !== undefined && item.totalScore !== null ? item.totalScore : "",
-        website: item.website || "",
-      }));
+      .filter((item) => {
+        if (!item) return false;
+        const title = (item.title || item.ten || "").trim();
+        return title !== "";
+      })
+      .map((item, index) => {
+        const title = (item.title || item.ten || "").trim();
+        const address = (item.address || item.dia_chi || "").trim();
+        const phone = normalizePhone(item.phone || item.so_dien_thoai);
+        const url = (item.url || item.google_maps_url || "").trim();
+        
+        let score = "";
+        if (item.totalScore !== undefined && item.totalScore !== null && item.totalScore !== "") {
+          score = item.totalScore;
+        } else if (item.rating !== undefined && item.rating !== null && item.rating !== "") {
+          score = item.rating;
+        }
+        
+        const website = (item.website || "").trim();
+
+        return {
+          stt: index + 1,
+          title,
+          phone,
+          address,
+          url,
+          totalScore: score,
+          website
+        };
+      });
 
     if (originalData.length === 0) {
       statusEl.className = "status error";
       statusEl.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>Không tìm thấy dữ liệu hợp lệ! Yêu cầu mỗi đối tượng phải có trường "title".</span>
+        <span>Không tìm thấy dữ liệu hợp lệ! Yêu cầu mỗi đối tượng phải có trường "title" hoặc "ten".</span>
       `;
       Toastify({
         text: "⚠️ Không tìm thấy dữ liệu hợp lệ!",
@@ -165,8 +262,8 @@ function renderResults() {
         <tr>
           <th>STT</th>
           <th>Title</th>
-          <th>Address</th>
           <th>Phone</th>
+          <th>Address</th>
           <th>URL</th>
           <th>Total Score</th>
           <th>Website</th>
@@ -184,8 +281,8 @@ function renderResults() {
       <tr ${trClass}>
         <td><strong>${sttDisplay}</strong></td>
         <td>${row.title}</td>
-        <td>${row.address}</td>
         <td>${row.phone}</td>
+        <td>${row.address}</td>
         <td>${displayUrl}</td>
         <td>${row.totalScore}</td>
         <td>${displayWebsite}</td>
@@ -316,8 +413,13 @@ function downloadJSON() {
     }
   }).showToast();
 
-  const jsonString = JSON.stringify(currentData, null, 2);
-  const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
+  const cleanData = currentData.map(item => {
+    const copy = { ...item };
+    delete copy.isDuplicate;
+    return copy;
+  });
+  const jsonString = JSON.stringify(cleanData, null, 2);
+  const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   
   const link = document.createElement("a");
@@ -363,17 +465,28 @@ function exportToExcel() {
   }).showToast();
 
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(currentData);
+  // Prepend single quote ' to phone to preserve leading zeros in Excel
+  const excelData = currentData.map(item => {
+    const copy = { ...item };
+    if (copy.phone && String(copy.phone).startsWith("0")) {
+      copy.phone = "'" + copy.phone;
+    }
+    return copy;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(excelData, {
+    header: ["stt", "title", "phone", "address", "url", "totalScore", "website"]
+  });
 
   // Rename headers to look professional
-  XLSX.utils.sheet_add_aoa(ws, [["STT", "Title", "Address", "Phone", "URL", "Total Score", "Website"]], { origin: "A1" });
+  XLSX.utils.sheet_add_aoa(ws, [["STT", "Title", "Phone", "Address", "URL", "Total Score", "Website"]], { origin: "A1" });
 
   // Auto column width
   const colWidths = [
     { wch: 6 },  // STT
     { wch: 45 }, // Title
-    { wch: 55 }, // Address
     { wch: 20 }, // Phone
+    { wch: 55 }, // Address
     { wch: 70 }, // URL
     { wch: 12 }, // Total Score
     { wch: 45 }, // Website
@@ -399,9 +512,11 @@ function handleFileSelect(event) {
 }
 
 function readFileContent(file) {
-  if (file.type !== "application/json" && !file.name.endsWith(".json")) {
+  const isJSON = file.type === "application/json" || file.name.endsWith(".json");
+  const isCSV = file.type === "text/csv" || file.name.endsWith(".csv") || file.type === "application/vnd.ms-excel";
+  if (!isJSON && !isCSV) {
     Toastify({
-      text: "❌ Vui lòng chỉ chọn tệp tin định dạng .json!",
+      text: "❌ Vui lòng chỉ chọn tệp tin định dạng .json hoặc .csv!",
       duration: 3000,
       gravity: "top",
       position: "right",
@@ -720,9 +835,9 @@ function loadFromLocalStorage() {
     return;
   }
 
-  // Load into active workspace
   originalData = savedData.map(item => ({ ...item }));
   currentData = savedData.map(item => ({ ...item }));
+  activeListId = listId;
 
   // Reset sort selection to default
   const sortSelect = document.getElementById("sortSelect");
@@ -779,6 +894,9 @@ function deleteListFromStorage() {
       // Reset selection and update stats
       select.value = "";
       updateStorageStats();
+      if (activeListId === listId) {
+        activeListId = "";
+      }
 
       Toastify({
         text: `🗑️ Đã xóa danh sách "${listName}"!`,
@@ -813,6 +931,7 @@ function clearAllStorage() {
       const select = document.getElementById("savedListsSelect");
       if (select) select.value = "";
       updateStorageStats();
+      activeListId = "";
 
       Toastify({
         text: "🗑️ Đã xóa sạch toàn bộ kho lưu trữ!",
@@ -835,7 +954,18 @@ function checkDuplicates() {
   let savedData = [];
 
   if (selectedListId) {
-    savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+    if (selectedListId !== activeListId) {
+      savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+    }
+  } else {
+    // Gather all saved data across all lists except the active one
+    const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+    lists.forEach(list => {
+      if (list.id !== activeListId) {
+        const data = JSON.parse(localStorage.getItem("hotel_data_" + list.id)) || [];
+        savedData = savedData.concat(data);
+      }
+    });
   }
 
   const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
@@ -878,7 +1008,7 @@ function checkDuplicates() {
       const listName = listEntry ? listEntry.name : "danh sách";
       msg += ` (so với danh sách "${listName}" và trùng chéo nội bộ).`;
     } else {
-      msg += ` (trùng chéo nội bộ). Bạn có thể chọn danh sách trong kho để kiểm tra sâu hơn.`;
+      msg += ` (so với toàn bộ các danh sách cũ đã lưu và trùng chéo nội bộ).`;
     }
     Toastify({
       text: msg,
@@ -896,6 +1026,8 @@ function checkDuplicates() {
       const listEntry = lists.find(list => list.id === selectedListId);
       const listName = listEntry ? listEntry.name : "danh sách";
       msg += ` (so với danh sách "${listName}").`;
+    } else {
+      msg += ` (so với toàn bộ các danh sách cũ đã lưu).`;
     }
     Toastify({
       text: msg,
@@ -917,7 +1049,18 @@ function removeDuplicates() {
   let savedData = [];
 
   if (selectedListId) {
-    savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+    if (selectedListId !== activeListId) {
+      savedData = JSON.parse(localStorage.getItem("hotel_data_" + selectedListId)) || [];
+    }
+  } else {
+    // Gather all saved data across all lists except the active one
+    const lists = JSON.parse(localStorage.getItem("hotel_lists_index")) || [];
+    lists.forEach(list => {
+      if (list.id !== activeListId) {
+        const data = JSON.parse(localStorage.getItem("hotel_data_" + list.id)) || [];
+        savedData = savedData.concat(data);
+      }
+    });
   }
 
   const savedUrls = new Set(savedData.map(item => item.url.trim().toLowerCase()).filter(u => u !== ""));
